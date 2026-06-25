@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>mesh — sign in</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="topbar" id="topbar"></div>
+
+<div class="auth-shell">
+  <div class="auth-card">
+    <div class="card">
+
+      <div class="tabs">
+        <button class="tab-btn active" id="tabSignIn" onclick="switchTab('signin')">Sign in</button>
+        <button class="tab-btn" id="tabSignUp" onclick="switchTab('signup')">Create account</button>
+      </div>
+
+      <form class="auth-form active" id="signinForm" onsubmit="handleSignIn(event)">
+        <div class="field">
+          <label for="si-username">Username</label>
+          <input id="si-username" type="text" autocomplete="username" placeholder="demo" required />
+        </div>
+        <div class="field">
+          <label for="si-password">Password</label>
+          <input id="si-password" type="password" autocomplete="current-password" placeholder="demo123" required />
+        </div>
+        <button class="btn" type="submit" id="signinBtn">Sign in</button>
+        <div class="inline-status muted" id="signinStatus">Try demo / demo123</div>
+      </form>
+
+      <form class="auth-form" id="signupForm" onsubmit="handleSignUp(event)">
+        <div class="field">
+          <label for="su-username">Username</label>
+          <input id="su-username" type="text" autocomplete="username" placeholder="At least 3 characters" required />
+        </div>
+        <div class="field">
+          <label for="su-password">Password</label>
+          <input id="su-password" type="password" autocomplete="new-password" placeholder="At least 6 characters" required />
+        </div>
+        <button class="btn" type="submit" id="signupBtn">Create account</button>
+        <div class="inline-status muted" id="signupStatus">New users are stored in Redis, not hardcoded</div>
+      </form>
+
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  // Already signed in — skip straight to orders.
+  if (getToken()) window.location.replace('orders.html');
+
+  renderTopbar({ authed: false });
+
+  function switchTab(which) {
+    document.getElementById('tabSignIn').classList.toggle('active', which === 'signin');
+    document.getElementById('tabSignUp').classList.toggle('active', which === 'signup');
+    document.getElementById('signinForm').classList.toggle('active', which === 'signin');
+    document.getElementById('signupForm').classList.toggle('active', which === 'signup');
+  }
+
+  function setInline(id, message, kind) {
+    const node = document.getElementById(id);
+    node.textContent = message;
+    node.className = 'inline-status ' + (kind || 'muted');
+  }
+
+  async function handleSignIn(e) {
+    e.preventDefault();
+    const username = document.getElementById('si-username').value.trim();
+    const password = document.getElementById('si-password').value;
+    const btn = document.getElementById('signinBtn');
+
+    btn.disabled = true;
+    setInline('signinStatus', 'Signing in…', 'muted');
+
+    try {
+      const resp = await fetch(`${CONFIG.AUTH_BASE}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setInline('signinStatus', data.error || 'Sign in failed', 'error');
+        btn.disabled = false;
+        return;
+      }
+      setSession(data.token, data.username || username);
+      window.location.href = 'orders.html';
+    } catch (err) {
+      setInline('signinStatus', 'Auth service unavailable', 'error');
+      btn.disabled = false;
+    }
+  }
+
+  async function handleSignUp(e) {
+    e.preventDefault();
+    const username = document.getElementById('su-username').value.trim();
+    const password = document.getElementById('su-password').value;
+    const btn = document.getElementById('signupBtn');
+
+    btn.disabled = true;
+    setInline('signupStatus', 'Creating account…', 'muted');
+
+    try {
+      const resp = await fetch(`${CONFIG.AUTH_BASE}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setInline('signupStatus', data.error || 'Could not create account', 'error');
+        btn.disabled = false;
+        return;
+      }
+      switchTab('signin');
+      document.getElementById('si-username').value = username;
+      document.getElementById('si-password').value = '';
+      setInline('signinStatus', 'Account created — sign in below', 'success');
+      btn.disabled = false;
+    } catch (err) {
+      setInline('signupStatus', 'Auth service unavailable', 'error');
+      btn.disabled = false;
+    }
+  }
+</script>
+
+</body>
+</html>

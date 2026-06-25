@@ -1,0 +1,45 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  auth:
+    build: ./auth
+    environment:
+      - PORT=3000
+      - JWT_SECRET=local-dev-secret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "3001:3000"
+    depends_on:
+      - redis
+
+  notifications:
+    build: ./notifications
+    environment:
+      - PORT=3000
+    ports:
+      - "3002:3000"
+
+  orders:
+    build: ./orders
+    environment:
+      - PORT=3000
+      - AUTH_SERVICE_URL=http://auth:3000
+      - NOTIFICATIONS_SERVICE_URL=http://notifications:3000
+    ports:
+      - "3003:3000"
+    depends_on:
+      - auth
+      - notifications
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - auth
+      - orders
+      - notifications

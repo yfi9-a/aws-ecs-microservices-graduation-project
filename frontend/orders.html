@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>mesh — orders</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="topbar" id="topbar"></div>
+
+<div class="page">
+  <div class="page-header">
+    <h1>Orders</h1>
+    <p>Each submission is verified against the Auth service, then notifies the Notifications service via Cloud Map.</p>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h2>New order</h2>
+      <form id="orderForm" onsubmit="handleCreateOrder(event)">
+        <div class="field">
+          <label for="item">Item</label>
+          <input id="item" type="text" list="itemOptions" placeholder="Laptop" autocomplete="off" required />
+          <datalist id="itemOptions">
+            <option value="Laptop">
+            <option value="Phone">
+            <option value="iPhone">
+            <option value="Monitor">
+            <option value="Keyboard">
+            <option value="Mouse">
+            <option value="Headphones">
+            <option value="Tablet">
+            <option value="Webcam">
+            <option value="Printer">
+          </datalist>
+        </div>
+        <div class="field">
+          <label for="quantity">Quantity</label>
+          <input id="quantity" type="number" min="1" value="1" required />
+        </div>
+        <button class="btn" type="submit" id="orderBtn">Place order</button>
+        <div class="inline-status muted" id="orderStatus"></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Your orders</h2>
+      <ul class="list" id="ordersList">
+        <li class="empty-state">Loading…</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  if (requireAuth()) {
+    renderTopbar({ activeNav: 'orders', authed: true });
+    loadOrders();
+    setInterval(loadOrders, 5000);
+  }
+
+  async function handleCreateOrder(e) {
+    e.preventDefault();
+    const item = document.getElementById('item').value.trim();
+    const quantity = Number(document.getElementById('quantity').value);
+    const btn = document.getElementById('orderBtn');
+    const status = document.getElementById('orderStatus');
+
+    btn.disabled = true;
+    status.className = 'inline-status muted';
+    status.textContent = 'Placing order…';
+
+    try {
+      const resp = await authFetch(`${CONFIG.ORDERS_BASE}/api/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item, quantity }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        status.className = 'inline-status error';
+        status.textContent = data.error || 'Could not place order';
+        btn.disabled = false;
+        return;
+      }
+      status.className = 'inline-status success';
+      status.textContent = `Order ${data.id.slice(0, 8)}… placed`;
+      document.getElementById('item').value = '';
+      document.getElementById('quantity').value = '1';
+      btn.disabled = false;
+      loadOrders();
+    } catch (err) {
+      if (err.message !== 'session expired') {
+        status.className = 'inline-status error';
+        status.textContent = 'Orders service unavailable';
+      }
+      btn.disabled = false;
+    }
+  }
+
+  async function loadOrders() {
+    const list = document.getElementById('ordersList');
+    try {
+      const resp = await authFetch(`${CONFIG.ORDERS_BASE}/api/orders`);
+      const data = await resp.json();
+
+      if (!Array.isArray(data) || data.length === 0) {
+        list.innerHTML = '<li class="empty-state">No orders yet — place your first one on the left.</li>';
+        return;
+      }
+
+      list.innerHTML = data
+        .slice()
+        .reverse()
+        .map(
+          (o) => `
+        <li class="list-item">
+          <div class="list-item-main">
+            <span class="list-item-title">${escapeHtml(o.item)} × ${o.quantity}</span>
+            <span class="list-item-meta">${o.id}</span>
+          </div>
+          <span class="pill pill-order">${escapeHtml(o.status)}</span>
+        </li>`
+        )
+        .join('');
+    } catch (err) {
+      if (err.message !== 'session expired') {
+        list.innerHTML = '<li class="empty-state">Orders service unavailable</li>';
+      }
+    }
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+</script>
+
+</body>
+</html>

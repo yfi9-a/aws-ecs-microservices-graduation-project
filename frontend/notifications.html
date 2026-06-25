@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>mesh — notifications</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="topbar" id="topbar"></div>
+
+<div class="page">
+  <div class="page-header">
+    <h1>Notifications</h1>
+    <p>Live feed for <strong id="userLabel"></strong> — the Orders service calls the Notifications service directly via Cloud Map DNS, bypassing the ALB.</p>
+  </div>
+
+  <div class="card">
+    <h2>Activity</h2>
+    <ul class="list" id="notifList">
+      <li class="empty-state">Loading…</li>
+    </ul>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  let knownIds = new Set();
+  let firstLoad = true;
+
+  if (requireAuth()) {
+    document.getElementById('userLabel').textContent = getUsername();
+    renderTopbar({ activeNav: 'notifications', authed: true });
+    pollNotifications();
+    setInterval(pollNotifications, 2000);
+  }
+
+  async function pollNotifications() {
+    const list = document.getElementById('notifList');
+    try {
+      const resp = await fetch(`${CONFIG.NOTIFICATIONS_BASE}/api/notifications`, { cache: 'no-store' });
+      const data = await resp.json();
+      const mine = (Array.isArray(data) ? data : []).filter((n) => n.username === getUsername());
+
+      if (mine.length === 0) {
+        list.innerHTML = '<li class="empty-state">No notifications yet — place an order to see one land here.</li>';
+        firstLoad = false;
+        return;
+      }
+
+      list.innerHTML = mine
+        .map((n) => {
+          const isNew = !firstLoad && !knownIds.has(n.id);
+          return `
+        <li class="list-item ${isNew ? 'is-new' : ''}">
+          <div class="list-item-main">
+            <span class="list-item-title">${escapeHtml(n.item || '')} × ${n.quantity || ''}</span>
+            <span class="list-item-meta">order ${n.orderId}</span>
+          </div>
+          <span class="pill pill-created">${escapeHtml(n.type)} · ${timeAgo(n.receivedAt)}</span>
+        </li>`;
+        })
+        .join('');
+
+      knownIds = new Set(mine.map((n) => n.id));
+      firstLoad = false;
+    } catch (err) {
+      list.innerHTML = '<li class="empty-state">Notifications service unavailable</li>';
+    }
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+</script>
+
+</body>
+</html>
