@@ -1,4 +1,4 @@
-# AWS ECS Fargate Microservices with Service Discovery
+<img width="1712" height="1444" alt="image" src="https://github.com/user-attachments/assets/9a24010a-d455-4341-b916-225b51c1187b" /># AWS ECS Fargate Microservices with Service Discovery
 
 ## 🚀 Project Overview
 This repository contains a containerized microservices application designed for high availability, scalability, and secure session management on AWS. The system splits a monolithic structure into three independent backend services and a dedicated static frontend, leveraging modern Cloud Native architectures.
@@ -6,6 +6,8 @@ This repository contains a containerized microservices application designed for 
 ---
 
 ## 🏗️ Architecture Design
+<img width="1206" height="1083" alt="image" src="https://github.com/user-attachments/assets/f72f4494-7468-4bba-9164-e2c128b4578f" />
+
 The infrastructure is designed to run within a secure multi-AZ Amazon VPC network environment.
 
 * **Frontend Container:** Served via Nginx to handle user interactions (Login, Registration, Order Creation, and Notification polling).
